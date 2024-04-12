@@ -1,0 +1,229 @@
+---
+title: "Analyzing UK Smoking Data using PCA"
+author: "Sejal Kankriya"
+date: '2023-02-18'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+always_allow_html: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# PCA on UK Smoking Data
+
+In this project we will analyze UK Smoking Data (`smoking.R`):
+
+**Description**
+
+Survey data on smoking habits from the UK. The data set can be used for
+analyzing the demographic characteristics of smokers and types of
+tobacco consumed.
+
+**Format**
+
+A data frame with 1691 observations on the following 12 variables.
+
+`gender` - Gender with levels Female and Male.
+
+`age` - Age.
+
+`marital_status` - Marital status with levels Divorced, Married,
+Separated, Single and Widowed.
+
+`highest_qualification` - Highest education level with levels A Levels,
+Degree, GCSE/CSE, GCSE/O Level, Higher/Sub Degree, No Qualification,
+ONC/BTEC and Other/Sub Degree
+
+`nationality` - Nationality with levels British, English, Irish,
+Scottish, Welsh, Other, Refused and Unknown.
+
+`ethnicity` - Ethnicity with levels Asian, Black, Chinese, Mixed, White
+and Refused Unknown.
+
+`gross_income` - Gross income with levels Under 2,600, 2,600 to 5,200,
+5,200 to 10,400, 10,400 to 15,600, 15,600 to 20,800, 20,800 to 28,600,
+28,600 to 36,400, Above 36,400, Refused and Unknown.
+
+`region` - Region with levels London, Midlands & East Anglia, Scotland,
+South East, South West, The North and Wales
+
+`smoke` - Smoking status with levels No and Yes
+
+`amt_weekends` - Number of cigarettes smoked per day on weekends.
+
+`amt_weekdays` - Number of cigarettes smoked per day on weekdays.
+
+`type` - Type of cigarettes smoked with levels Packets, Hand-Rolled,
+Both/Mainly Packets and Both/Mainly Hand-Rolled
+
+Source National STEM Centre, Large Datasets from stats4schools,
+<https://www.stem.org.uk/resources/elibrary/resource/28452/large-datasets-stats4schools>.
+
+Obtained from <https://www.openintro.org/data/index.php?data=smoking>
+
+## Read and Clean the Data
+
+```{r setup, include=FALSE,warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+
+library(tibble)
+library(readr)
+library(dplyr)
+library(stats)
+
+library(broom)
+library(cowplot)
+
+library(ggplot2)
+library(ggbiplot)
+library(fastDummies)
+library(forcats)
+library(plotly)
+```
+
+```{r}
+# Load data
+source("smoking.R")
+```
+
+Take a look into data
+
+```{r}
+# place holder
+smoking
+# smoking_data
+```
+
+There are many fields there so for this exercise lets only concentrate
+on smoke, gender, age, marital_status, highest_qualification and
+gross_income.
+
+Create new data.frame with only these columns.
+
+```{r}
+# place holder
+df <- subset(smoking,
+  select = c(
+    "smoke", "gender", "age", "marital_status",
+    "highest_qualification", "gross_income"
+  ))
+```
+
+Omit all incomplete records
+
+```{r}
+# place holder
+smoking_data <- na.omit(df)
+```
+
+For PCA feature should be numeric. Some of fields are binary (`gender`
+and `smoke`) and can easily be converted to numeric type (with one and
+zero). Other fields like `marital_status` has more than two categories,
+convert them to binary (i.e. is_married, is_devorced). Several features
+in the data set are ordinal (`gross_income` and
+`highest_qualification`), convert them to some king of sensible level
+(note that levels in factors are not in order)
+
+```{r}
+# place holder
+smoking_data <- smoking_data %>% 
+  mutate(
+    gender = as.numeric(gender == "Female"),
+    smoke = as.numeric(smoke == "Yes"),
+    is_married = ifelse(marital_status == "Married", 1, 0),
+    is_divorced = ifelse(marital_status == "Divorced", 1, 0),
+    is_widowed = ifelse(marital_status == "Widowed", 1, 0),
+    is_single = ifelse(marital_status == "Single", 1, 0),
+    is_seperated = ifelse(marital_status == "Separated", 1, 0),
+    gross_income = as.integer(as.factor(gross_income)),
+    highest_qualification = as.integer(as.factor(highest_qualification))
+) %>%
+select(-marital_status)
+```
+
+PCA on all columns except smoking status
+
+```{r echo=TRUE}
+# place holder
+pca_fit <- prcomp(smoking_data[c(-1)], scale=T)
+pca_fit
+pca_fit$sdev
+```
+
+Make a scree plot
+
+```{r echo=TRUE, fig.height=4, fig.width=8}
+# place holder
+plot(pca_fit, type="line", main="Scree Plot")
+```
+
+Biplot color points by smoking field
+
+```{r fig.width=5, fig.height=5}
+ggbiplot(pca_fit, scale=0, groups = as.factor(smoking_data$smoke))
+```
+
+Based on the above biplot, there are two groups - smokers and
+non-smokers. This can be pointed out by the different colors of the
+points of two groups. The PC1 seems to be related to unmarried and
+highest qualification. Whereas, the PC2 appears to be associated with
+age.
+
+We can use first two to discriminate smoking. However, just by using two
+PCs wouldn't provide optimal seperation.
+
+Based on the loading vector we can name the PC. Let's say if the PC1 is
+associated with income and qualification we can name it as social class.
+and if associated with marital status age, then we can name it as life
+stage.
+
+For highest_qualification variable, it may be more appropriate to assign
+numbers for each levels according to their order. for eg. 1 for no
+qualification, 2 for high school, etc.
+
+Following the suggestion above and redo PCA and biplot
+
+```{r}
+source("smoking.R")
+df <- subset(smoking,
+  select = c(
+    "smoke", "gender", "age", "marital_status",
+    "highest_qualification", "gross_income"
+  ))
+smoking_data <- na.omit(df)
+smoking_data_redo <- smoking_data %>% 
+  mutate(
+    gender = as.numeric(gender == "Female"),
+    smoke = as.numeric(smoke == "Yes"),
+    is_married = ifelse(marital_status == "Married", 1, 0),
+    is_divorced = ifelse(marital_status == "Divorced", 1, 0),
+    is_widowed = ifelse(marital_status == "Widowed", 1, 0),
+    is_single = ifelse(marital_status == "Single", 1, 0),
+    is_separated = ifelse(marital_status == "Separated", 1, 0),
+    gross_income = as.integer(as.factor(gross_income)),
+    highest_qualification = case_when(
+      highest_qualification == "No Qualification" ~ 0,
+      highest_qualification == "GCSE/O Level" ~ 1,
+      highest_qualification == "Other/Sub Degree" ~ 2, 
+      highest_qualification == "Higher/Sub Degree" ~ 3,
+      highest_qualification == "Degree" ~ 4,
+      highest_qualification == "A Levels" ~ 5,
+      highest_qualification == "GCSE/CSE" ~ 6,
+      highest_qualification == "ONC/BTEC" ~ 7)
+  ) %>%
+select(-marital_status)
+```
+
+```{r}
+pca_fit_redo <- prcomp(smoking_data_redo[c(-1)], scale=T)
+pca_fit_redo
+pca_fit_redo$sdev
+```
+
+```{r fig.width=5, fig.height=5}
+ggbiplot(pca_fit_redo, scale=0, groups = as.factor(smoking_data_redo$smoke))
+```
